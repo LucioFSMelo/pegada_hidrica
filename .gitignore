@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -216,3 +217,38 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+=======
+# ==========================================
+# Ambiente Virtual (Evita enviar gigabytes de pacotes)
+# ==========================================
+venv/
+.venv/
+env/
+ENV/
+
+# ==========================================
+# Caches do Python e Streamlit
+# ==========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.streamlit/config.toml
+
+# ==========================================
+# Bancos de Dados Locais e Arquivos de Teste
+# (Em produção, o banco nasce limpo no servidor)
+# ==========================================
+*.db
+*.db-journal
+*.sqlite
+*.csv
+
+# ==========================================
+# Arquivos do Sistema Operacional e VSCode
+# ==========================================
+.vscode/
+.DS_Store
+Thumbs.db
+>>>>>>> c1dc9eb (Feat: Aplicativo Pegada Hidrica)
