@@ -64,7 +64,7 @@ inicializar_banco()
 
 # --- INTERFACE DO USUÁRIO (STREAMLIT) ---
 
-st.title("💧 Interclasses: A Grande Corrida Hídrica")
+st.title("💧 Semana do Meio Ambiente: Pegada Hídrica")
 st.markdown("""
 **9º A, 9º B e 9º C juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados!
 """)
@@ -81,7 +81,7 @@ with aba1:
     st.header("Análise de Hábitos Individuais")
     
     nome_aluno = st.text_input("Digite seu primeiro nome (e sobrenome se quiser):")
-    turma_aluno = st.selectbox("Selecione sua turma:", ["9º A", "9º B", "9º C"])
+    turma_aluno = st.selectbox("Selecione sua turma:", ["9º A", "9º B", "9º C", "8º A", "8º B", "8º C"])
     
     st.divider()
     
