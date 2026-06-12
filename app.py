@@ -62,11 +62,14 @@ def apagar_banco():
 # Inicializa o banco de dados ao rodar o app
 inicializar_banco()
 
+# --- LISTA OFICIAL DE TURMAS (Centralizada para evitar erros) ---
+TURMAS_OFICIAIS = ["8º A", "8º B", "8º C", "9º A", "9º B", "9º C"]
+
 # --- INTERFACE DO USUÁRIO (STREAMLIT) ---
 
-st.title("💧 Semana do Meio Ambiente: Pegada Hídrica")
+st.title("💧 **Semana do Meio Ambiente - EPCB**: Pegada Hídrica")
 st.markdown("""
-**9º A, 9º B e 9º C juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados!
+**9º A, 9º B e 9º C, juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados e ajude sua turma na gincana!
 """)
 
 # Taxas de vazão padrão
@@ -81,7 +84,7 @@ with aba1:
     st.header("Análise de Hábitos Individuais")
     
     nome_aluno = st.text_input("Digite seu primeiro nome (e sobrenome se quiser):")
-    turma_aluno = st.selectbox("Selecione sua turma:", ["9º A", "9º B", "9º C", "8º A", "8º B", "8º C"])
+    turma_aluno = st.selectbox("Selecione sua turma:", TURMAS_OFICIAIS)
     
     st.divider()
     
@@ -125,7 +128,7 @@ with aba1:
             salvar_no_banco(nome_aluno.strip(), turma_aluno, litros_banho, litros_escovacao, litros_total)
             st.success(f"✅ Sucesso! Os dados de {nome_aluno} foram guardados no banco SQLite.")
 
-# --- ABA 2: RANKING, PÓDIO E GRÁFICOS (SQLITE EM AÇÃO CORRIGIDO) ---
+# --- ABA 2: RANKING, PÓDIO E GRÁFICOS ---
 with aba2:
     df_geral = ler_todos_dados()
     
@@ -138,30 +141,41 @@ with aba2:
         st.subheader("👑 Os Campeões da Economia (Pódio por Turma)")
         st.markdown("O aluno de cada turma que registrou o **menor consumo diário de água**:")
         
-        col_a, col_b, col_c = st.columns(3)
-        
-        # Corrigido aqui: "turma" e "gasto_total" em minúsculo
-        for t, col in zip(["9º A", "9º B", "9º C"], [col_a, col_b, col_c]):
+        # Como temos 6 turmas, dividimos em duas linhas de 3 colunas para o layout ficar bonito
+        st.markdown("#### **8º Anos**")
+        col8_a, col8_b, col8_c = st.columns(3)
+        for t, col in zip(["8º A", "8º B", "8º C"], [col8_a, col8_b, col8_c]):
             df_turma = df_geral[df_geral["turma"] == t]
             with col:
-                st.markdown(f"### {t}")
+                st.markdown(f"**{t}**")
                 if df_turma.empty:
                     st.caption("Sem registros")
                 else:
                     campeao = df_turma.loc[df_turma["gasto_total"].idxmin()]
-                    st.success(f"🥇 **{campeao['nome']}**\n\nConsumo: **{campeao['gasto_total']:.1f} L/dia**")
+                    st.success(f"🥇 **{campeao['nome']}**\n\n**{campeao['gasto_total']:.1f} L/dia**")
+
+        st.markdown("#### **9º Anos**")
+        col9_a, col9_b, col9_c = st.columns(3)
+        for t, col in zip(["9º A", "9º B", "9º C"], [col9_a, col9_b, col9_c]):
+            df_turma = df_geral[df_geral["turma"] == t]
+            with col:
+                st.markdown(f"**{t}**")
+                if df_turma.empty:
+                    st.caption("Sem registros")
+                else:
+                    campeao = df_turma.loc[df_turma["gasto_total"].idxmin()]
+                    st.success(f"🥇 **{campeao['nome']}**\n\n**{campeao['gasto_total']:.1f} L/dia**")
 
         st.divider()
         
         # 📈 GERANDO O GRÁFICO DE LINHAS COM AS MÉDIAS
         st.subheader("📈 Placar das Turmas")
         
-        # Corrigido aqui: agrupando por "turma" e tirando a média de "gasto_total"
         df_medias = df_geral.groupby("turma")["gasto_total"].mean().reset_index()
-        todas_turmas = pd.DataFrame({"turma": ["9º A", "9º B", "9º C"]})
+        todas_turmas = pd.DataFrame({"turma": TURMAS_OFICIAIS})
         df_medias = pd.merge(todas_turmas, df_medias, on="turma", how="left").fillna(0)
         
-        fig, ax = plt.subplots(figsize=(6, 3.5))
+        fig, ax = plt.subplots(figsize=(7, 3.8))
         ax.plot(df_medias["turma"], df_medias["gasto_total"], marker='o', color='#2ecc71', linewidth=3, label="Média da Turma")
         ax.set_ylabel("Litros (Média)", fontsize=10)
         ax.set_title("Corrida Hídrica: Quem gasta MENOS está no topo!", fontsize=11, fontweight='bold')
@@ -183,14 +197,11 @@ with aba2:
         st.divider()
         with st.expander("⚙️ Painel de Controle do Professor"):
             senha_professor = st.text_input("Digite a senha de administrador:", type="password")
-            
-            # Defina aqui a sua senha (coloquei 'admin123' como padrão, pode alterar!)
             SENHA_CORRETA = "admin123"
             
             if senha_professor:
                 if senha_professor == SENHA_CORRETA:
                     st.success("🔓 Acesso liberado, Professor!")
-                    
                     st.warning("⚠️ Zona de Perigo: As ações abaixo são irreversíveis.")
                     if st.button("🗑️ Resetar Gincana (Apagar Banco SQLite)"):
                         apagar_banco()
@@ -198,7 +209,6 @@ with aba2:
                         st.rerun()
                 else:
                     st.error("❌ Senha incorreta! Tente novamente.")
-
 
 # --- ABA 3: SIMULADOR COLETIVO ---
 with aba3:
