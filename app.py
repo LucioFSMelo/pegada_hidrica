@@ -74,7 +74,7 @@ if "dados_enviados" not in st.session_state:
 
 st.title("💧 Semana do Meio Ambiente: Pegada Hídrica")
 st.markdown("""
-**8º e 9º anos juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados e ajude sua turma na gincana!
+**8º e 9º anos juntos contra o desperdício!** Calcule sua pegada!
 """)
 
 # Taxas de vazão padrão
