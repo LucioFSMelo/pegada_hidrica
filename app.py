@@ -62,14 +62,19 @@ def apagar_banco():
 # Inicializa o banco de dados ao rodar o app
 inicializar_banco()
 
-# --- LISTA OFICIAL DE TURMAS (Centralizada para evitar erros) ---
+# --- LISTA OFICIAL DE TURMAS ---
 TURMAS_OFICIAIS = ["8º A", "8º B", "8º C", "9º A", "9º B", "9º C"]
+
+# --- CONTROLE DE CLIQUE ÚNICO (SESSION STATE) ---
+# Se a variável 'dados_enviados' não existir nesta sessão, nós a iniciamos como Falsa
+if "dados_enviados" not in st.session_state:
+    st.session_state.dados_enviados = False
 
 # --- INTERFACE DO USUÁRIO (STREAMLIT) ---
 
-st.title("💧 **Semana do Meio Ambiente - EPCB**: Pegada Hídrica")
+st.title("💧 Semana do Meio Ambiente: Pegada Hídrica")
 st.markdown("""
-**9º A, 9º B e 9º C, juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados e ajude sua turma na gincana!
+**8º e 9º anos juntos contra o desperdício!** Calcule sua pegada, envie para o banco de dados e ajude sua turma na gincana!
 """)
 
 # Taxas de vazão padrão
@@ -120,13 +125,21 @@ with aba1:
     col2.metric("Gasto na Escovação", f"{litros_escovacao:.1f} L")
     st.info(f"**Consumo direto estimado: {litros_total:.1f} litros por dia.**")
 
-    # Envio para o SQLite
-    if st.button("💾 Enviar meus dados para o Banco de Dados"):
-        if nome_aluno.strip() == "":
-            st.error("⚠️ Por favor, digite seu nome antes de enviar!")
-        else:
-            salvar_no_banco(nome_aluno.strip(), turma_aluno, litros_banho, litros_escovacao, litros_total)
-            st.success(f"✅ Sucesso! Os dados de {nome_aluno} foram guardados no banco SQLite.")
+    # Modificado aqui: Se o aluno já enviou, desabilitamos o botão para evitar clique duplo
+    if st.session_state.dados_enviados:
+        st.success(f"🎉 Seus dados já foram computados, {nome_aluno}! Vá até a aba do Ranking para ver o resultado.")
+        if st.button("🔄 Enviar novos dados (Corrigir digitação)"):
+            st.session_state.dados_enviados = False
+            st.rerun()
+    else:
+        if st.button("💾 Enviar meus dados para o Banco de Dados"):
+            if nome_aluno.strip() == "":
+                st.error("⚠️ Por favor, digite seu nome antes de enviar!")
+            else:
+                salvar_no_banco(nome_aluno.strip(), turma_aluno, litros_banho, litros_escovacao, litros_total)
+                st.session_state.dados_enviados = True # Ativa a trava de segurança contra cliques múltiplos
+                st.success(f"✅ Sucesso! Os dados de {nome_aluno} foram guardados no banco SQLite.")
+                st.rerun()
 
 # --- ABA 2: RANKING, PÓDIO E GRÁFICOS ---
 with aba2:
@@ -141,7 +154,6 @@ with aba2:
         st.subheader("👑 Os Campeões da Economia (Pódio por Turma)")
         st.markdown("O aluno de cada turma que registrou o **menor consumo diário de água**:")
         
-        # Como temos 6 turmas, dividimos em duas linhas de 3 colunas para o layout ficar bonito
         st.markdown("#### **8º Anos**")
         col8_a, col8_b, col8_c = st.columns(3)
         for t, col in zip(["8º A", "8º B", "8º C"], [col8_a, col8_b, col8_c]):
@@ -168,23 +180,31 @@ with aba2:
 
         st.divider()
         
-        # 📈 GERANDO O GRÁFICO DE LINHAS COM AS MÉDIAS
-        st.subheader("📈 Placar das Turmas")
+        # 📈 GERANDO O GRÁFICO DE COLUNAS COM AS MÉDIAS (Sua nova solicitação!)
+        st.subheader("📈 Placar Geral das Turmas")
         
         df_medias = df_geral.groupby("turma")["gasto_total"].mean().reset_index()
         todas_turmas = pd.DataFrame({"turma": TURMAS_OFICIAIS})
         df_medias = pd.merge(todas_turmas, df_medias, on="turma", how="left").fillna(0)
         
-        fig, ax = plt.subplots(figsize=(7, 3.8))
-        ax.plot(df_medias["turma"], df_medias["gasto_total"], marker='o', color='#2ecc71', linewidth=3, label="Média da Turma")
-        ax.set_ylabel("Litros (Média)", fontsize=10)
-        ax.set_title("Corrida Hídrica: Quem gasta MENOS está no topo!", fontsize=11, fontweight='bold')
-        ax.grid(True, linestyle='--', alpha=0.5)
+        fig, ax = plt.subplots(figsize=(7, 4))
+        
+        # Alterado de ax.plot para ax.bar para gerar colunas verticais
+        barras = ax.bar(df_medias["turma"], df_medias["gasto_total"], color=['#3498db', '#3498db', '#3498db', '#2ecc71', '#2ecc71', '#2ecc71'], edgecolor='black', alpha=0.85)
+        
+        ax.set_ylabel("Litros Consumidos (Média)", fontsize=10)
+        ax.set_title("Corrida Hídrica: Quem tem a menor coluna está ganhando!", fontsize=11, fontweight='bold')
+        ax.grid(axis='y', linestyle='--', alpha=0.5) # Grid apenas nas linhas horizontais
         ax.set_ylim(0, max(df_medias["gasto_total"].max() + 30, 150))
         
-        for i, txt in enumerate(df_medias["gasto_total"]):
-            ax.annotate(f"{txt:.1f} L", (df_medias["turma"][i], df_medias["gasto_total"][i]), 
-                         textcoords="offset points", xytext=(0,10), ha='center', fontweight='bold')
+        # Adiciona os valores numéricos em cima de cada coluna
+        for barra in barras:
+            altura = barra.get_height()
+            ax.annotate(f"{altura:.1f} L",
+                        xy=(barra.get_x() + barra.get_width() / 2, altura),
+                        xytext=(0, 3),  # Deslocamento vertical do texto
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontweight='bold')
             
         st.pyplot(fig)
         plt.close(fig)
