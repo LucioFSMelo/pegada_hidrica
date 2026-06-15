@@ -4,16 +4,21 @@ TURMAS_OFICIAIS = ["8º A", "8º B", "8º C", "9º A", "9º B", "9º C"]
 
 def calcular_pegada(tempo_banho, chuveiro_fechado, tempo_escovacao, torneira_escovacao):
     """Calcula os litros gastos baseados nos hábitos informados."""
+    # Lógica do banho
     if "Sim" in chuveiro_fechado:
         tempo_chuveiro_ligado = tempo_banho / 2
     else:
         tempo_chuveiro_ligado = tempo_banho
     litros_banho = tempo_chuveiro_ligado * VAZAO_CHUVEIRO
-
+    
+    # Lógica da Escovação Proporcional
     if "Sim" in torneira_escovacao:
-        litros_escovacao = 0.5 * VAZAO_TORNEIRA_PIA
+        tempo_torneira_aberta = tempo_escovacao * 0.10
     else:
-        litros_escovacao = tempo_escovacao * VAZAO_TORNEIRA_PIA
+        # A torneira fica aberta 100% do tempo de escovação
+        tempo_torneira_aberta = tempo_escovacao
+    
+    litros_escovacao = tempo_torneira_aberta * VAZAO_TORNEIRA_PIA
 
     litros_total = litros_banho + litros_escovacao
     return litros_banho, litros_escovacao, litros_total
