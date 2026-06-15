@@ -1,20 +1,27 @@
+import sys
+import os
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+
 from app.backend.database import ler_todos_dados, apagar_banco
 from app.backend.calculator import TURMAS_OFICIAIS
 
-def renderizar_aba_ranking():
-    df_geral = ler_todos_dados()
-    
-    if df_geral.empty:
-        st.warning("📥 O banco de dados SQLite está vazio. Aguardando registros!")
-        return
+st.set_page_config(page_title="Gincana Hídrica", page_icon="🏆", layout="centered")
 
-    st.write(f"📊 **Total de participantes registrados no banco:** {len(df_geral)} alunos.")
+st.header("🏆 Placar em Tempo Real da Gincana")
+df_geral = ler_todos_dados()
+
+if df_geral.empty:
+    st.warning("📥 O banco de dados SQLite está vazio. Aguardando o primeiro registro dos estudantes!")
+else:
+    st.write(f"📊 **Total de participantes registrados:** {len(df_geral)} alunos.")
+    
     st.subheader("👑 Os Campeões da Economia (Pódio por Turma)")
     
-    # Renderização dos pódios por série
+    # Renderização organizada por série
     for serie, turmas in zip(["8º Anos", "9º Anos"], [["8º A", "8º B", "8º C"], ["9º A", "9º B", "9º C"]]):
         st.markdown(f"#### **{serie}**")
         cols = st.columns(3)
@@ -29,7 +36,7 @@ def renderizar_aba_ranking():
                     st.success(f"🥇 **{campeao['nome']}**\n\n**{campeao['gasto_total']:.1f} L/dia**")
 
     st.divider()
-    st.subheader("📈 Placar Geral das Turmas")
+    st.subheader("📈 Gráfico Comparativo das Médias")
     
     df_medias = df_geral.groupby("turma")["gasto_total"].mean().reset_index()
     todas_turmas = pd.DataFrame({"turma": TURMAS_OFICIAIS})
@@ -48,18 +55,16 @@ def renderizar_aba_ranking():
         
     st.pyplot(fig)
     plt.close(fig)
-    
-    st.subheader("📋 Tabela Geral de Auditoria")
-    st.dataframe(df_geral[["nome", "turma", "gasto_total"]].sort_values(by="gasto_total"))
 
-    # Painel do Professor protegido
+    # Painel Administrativo Protegido
     st.divider()
     with st.expander("⚙️ Painel de Controle do Professor"):
-        senha_professor = st.text_input("Digite a senha de administrador:", type="password", key="senha_prof")
+        senha_professor = st.text_input("Digite a senha de administrador:", type="password")
         if senha_professor == "admin123":
             st.success("🔓 Acesso liberado, Professor!")
             if st.button("🗑️ Resetar Gincana (Apagar Banco SQLite)"):
                 apagar_banco()
+                st.success("Banco limpo!")
                 st.rerun()
         elif senha_professor:
             st.error("❌ Senha incorreta!")
