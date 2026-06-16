@@ -1,15 +1,20 @@
 import sqlite3
 import datetime
+import hashlib
 import pandas as pd
 
 DB_NAME = "banco_pegada_hidrica.db"
 
+def gerar_hash_senha(senha_pura):
+    """Transforma uma senha de texto limpo em um código seguro (Hash SHA-256)."""
+    return hashlib.sha256(senha_pura.encode('utf-8')).hexdigest()
+
 def inicializar_banco():
-    """Cria o banco de dados e as tabelas necessárias se não existirem."""
+    """Cria as tabelas necessárias sem nenhuma turma padrão."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Tabela de consumo dos alunos (adicionada a coluna data_registro)
+    # Tabela de consumo dos alunos
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS consumo (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,65 +27,88 @@ def inicializar_banco():
         )
     """)
     
-    # Tabela de logins dos professores vinculados às suas respectivas turmas
+    # Tabela de professores (gerenciadores de turmas)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS professores (
             usuario TEXT PRIMARY KEY,
-            senha TEXT NOT NULL,
+            senha_criptografada TEXT NOT NULL,
             turma_gerenciada TEXT NOT NULL
         )
     """)
     
-    # Cria professores padrão para testes caso a tabela esteja vazia
-    cursor.execute("SELECT COUNT(*) FROM professores")
-    if cursor.fetchone()[0] == 0:
-        professores_iniciais = [
-            ("lucio8a", "senha123", "8º A"),
-            ("professor8b", "senha123", "8º B"),
-            ("professor8c", "senha123", "8º C"),
-            ("professor9a", "senha123", "9º A"),
-            ("professor9b", "senha123", "9º B"),
-            ("professor9c", "senha123", "9º C"),
-        ]
-        cursor.executemany("INSERT INTO professores (usuario, senha, turma_gerenciada) VALUES (?, ?, ?)", professores_iniciais)
-    
     conn.commit()
     conn.close()
 
-def salvar_no_banco(nome, turma, gasto_banho, gasto_escovacao, gasto_total):
-    """Salva os dados do aluno incluindo o carimbo de data/hora atual."""
+def login_ou_cadastro_professor(usuario, senha_digitada, turma_digitada):
+    """
+    Verifica o login do professor. Se o usuário não existir, cria o cadastro
+    automaticamente vinculado à turma informada.
+    """
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Captura a data e hora exata do envio
-    data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    senha_hash = gerar_hash_senha(senha_digitada)
+    usuario_limpo = usuario.strip().lower()
+    turma_formatada = turma_digitada.strip().upper() # Padroniza para maiúsculas (ex: 6º A)
     
+    # Verifica se o usuário já existe
+    cursor.execute("SELECT senha_criptografada, turma_gerenciada FROM professores WHERE usuario = ?", (usuario_limpo,))
+    professor = cursor.fetchone()
+    
+    if professor:
+        # Se existe, verifica se a senha bate
+        if professor[0] == senha_hash:
+            conn.close()
+            return professor[1] # Retorna a turma gerenciada gravada no banco
+        else:
+            conn.close()
+            return "SENHA_INCORRETA"
+    else:
+        # Se o usuário NÃO existe, cria um novo professor e uma nova turma na hora!
+        if usuario_limpo == "" or senha_digitada.strip() == "" or turma_formatada == "":
+            conn.close()
+            return "CAMPOS_VAZIOS"
+            
+        cursor.execute("""
+            INSERT INTO professores (usuario, senha_criptografada, turma_gerenciada)
+            VALUES (?, ?, ?)
+        """, (usuario_limpo, senha_hash, turma_formatada))
+        conn.commit()
+        conn.close()
+        return turma_formatada
+
+def buscar_turmas_ativas():
+    """Retorna uma lista de todas as turmas que possuem professores ou alunos cadastrados."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Coleta turmas da tabela de professores e alunos para cruzar os dados dinamicamente
+    cursor.execute("SELECT turma_gerenciada FROM professores UNION SELECT turma FROM consumo")
+    turmas = [linha[0] for linha in cursor.fetchall() if linha[0]]
+    
+    conn.close()
+    return sorted(turmas) # Retorna em ordem alfabética/numérica natural
+
+# --- Funções mantidas após refatoração ---
+
+def salvar_no_banco(nome, turma, gasto_banho, gasto_escovacao, gasto_total):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    data_atual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cursor.execute("""
         INSERT INTO consumo (nome, turma, gasto_banho, gasto_escovacao, gasto_total, data_registro)
         VALUES (?, ?, ?, ?, ?, ?)
-    """, (nome, turma, gasto_banho, gasto_escovacao, gasto_total, data_atual))
-    
+    """, (nome.strip(), turma.strip().upper(), gasto_banho, gasto_escovacao, gasto_total, data_atual))
     conn.commit()
     conn.close()
 
 def ler_todos_dados():
-    """Retorna um DataFrame com todos os registros de consumo do banco."""
     conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql_query("SELECT * FROM consumo", conn)
     conn.close()
     return df
 
-def verificar_login_professor(usuario, senha):
-    """Verifica se as credenciais do professor existem e retorna a turma dele."""
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT turma_gerenciada FROM professores WHERE usuario = ? AND senha = ?", (usuario, senha))
-    resultado = cursor.fetchone()
-    conn.close()
-    return resultado[0] if resultado else None
-
 def apagar_dados_por_turma(turma):
-    """Permite que um professor limpe manualmente APENAS os dados da sua turma."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM consumo WHERE turma = ?", (turma,))
@@ -88,15 +116,9 @@ def apagar_dados_por_turma(turma):
     conn.close()
 
 def rotina_autolimpeza_15_dias(turma):
-    """Executa a limpeza automática de dados com mais de 15 dias para evitar sobrecarga."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    
-    # Calcula a data exata de 15 dias atrás
     data_limite = (datetime.datetime.now() - datetime.timedelta(days=15)).strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Deleta apenas os registros antigos daquela turma específica
     cursor.execute("DELETE FROM consumo WHERE turma = ? AND data_registro < ?", (turma, data_limite))
-    
     conn.commit()
     conn.close()

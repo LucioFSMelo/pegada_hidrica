@@ -5,33 +5,54 @@ import streamlit as st
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.backend.database import inicializar_banco
 
-# Garante que as tabelas do banco de dados existam ao abrir o app
 inicializar_banco()
 
 st.set_page_config(page_title="Detetives da Água - Sistema", page_icon="🏠", layout="centered")
 
-# --- BARRA LATERAL FIXA: BOTÃO DE DOAÇÃO ---
+# --- BARRA LATERAL: MENU DE DOAÇÕES DE VALOR FIXO ---
 with st.sidebar:
     st.title("🌱 Apoie o Projeto")
     st.markdown("""
-    Se este aplicativo ajudou suas turmas, considere fazer uma contribuição voluntária para nos ajudar a manter os servidores ativos!
+    Contribua voluntariamente para ajudar a manter os servidores do banco de dados ativos na internet!
+    **Escolha um valor para doar via PIX:**
     """)
     
-    # Botão visual de doação estilizado profissionalmente com HTML e CSS
-    st.markdown(
-        """
-        <a href="https://luciofsmelo.github.io/link-seu-pix" target="_blank" style="text-decoration: none;">
-            <div style="background-color: #2ecc71; color: white; text-align: center; padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0px 4px 6px rgba(0,0,0,0.15); transition: 0.3s;">
-                🪙 Contribuir / Doar via PIX
+    # IMPORTANTE: Substitua os links abaixo ('https://...') pelos links reais gerados no seu banco ou plataforma
+    link_10_reais = "https://nubank.com.br/cobrar/1fkkil/6a31c705-3575-4cd8-a16d-78a1340fcfa0"
+    link_15_reais = "https://nubank.com.br/cobrar/1fkkil/6a31c7f8-9e1a-416c-be9a-0661b1d66f66"
+    link_20_reais = "https://nubank.com.br/cobrar/1fkkil/6a31c832-90b7-4df2-b7f0-5ec4ca9187e1"
+    
+    # Botão de R$ 10,00 estilizado em HTML
+    st.markdown(f"""
+        <a href="{link_10_reais}" target="_blank" style="text-decoration: none;">
+            <div style="background-color: #3498db; color: white; text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1);">
+                🪙 Doar R$ 10,00
             </div>
         </a>
-        """, 
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
+    
+    # Botão de R$ 15,00 estilizado em HTML (Cor Verde Destaque)
+    st.markdown(f"""
+        <a href="{link_15_reais}" target="_blank" style="text-decoration: none;">
+            <div style="background-color: #2ecc71; color: white; text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1);">
+                💚 Doar R$ 15,00 (Recomendado)
+            </div>
+        </a>
+    """, unsafe_allow_html=True)
+    
+    # Botão de R$ 20,00 estilizado em HTML
+    st.markdown(f"""
+        <a href="{link_20_reais}" target="_blank" style="text-decoration: none;">
+            <div style="background-color: #9b59b6; color: white; text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; box-shadow: 0px 2px 4px rgba(0,0,0,0.1);">
+                💎 Doar R$ 20,00
+            </div>
+        </a>
+    """, unsafe_allow_html=True)
+    
     st.divider()
-    st.caption("Desenvolvido para feiras de ciências e aulas de matemática/estatística.")
+    st.caption("Agradecemos imensamente o seu apoio à educação tecnológica!")
 
-# --- CONTEÚDO PRINCIPAL (HOME) ---
+# --- CONTEÚDO PRINCIPAL DA HOME ---
 st.title("🏠 Objeto Digital de Aprendizagem: Detetives da Água")
 st.markdown("---")
 
@@ -47,37 +68,24 @@ st.markdown("Clique nos botões abaixo para baixar os slides e os guias em PDF u
 col_pdf, col_pptx = st.columns(2)
 
 with col_pdf:
-    # O arquivo 'material_aula.pdf' deve ser colocado na pasta raiz do seu projeto (pegada_hidrica/)
     if os.path.exists("material_aula.pdf"):
         with open("material_aula.pdf", "rb") as f:
-            st.download_button(
-                label="📄 Baixar Guia em PDF",
-                data=f,
-                file_name="Guia_Detetives_da_Agua.pdf",
-                mime="application/pdf"
-            )
+            st.download_button(label="📄 Baixar Guia em PDF", data=f, file_name="Guia_Detetives_da_Agua.pdf", mime="application/pdf")
     else:
         st.caption("⚠️ Arquivo 'material_aula.pdf' não encontrado na pasta raiz.")
 
 with col_pptx:
-    # O arquivo 'material_aula.pptx' deve ser colocado na pasta raiz do seu projeto (pegada_hidrica/)
     if os.path.exists("material_aula.pptx"):
         with open("material_aula.pptx", "rb") as f:
-            st.download_button(
-                label="💻 Baixar Apresentação (PPTX)",
-                data=f,
-                file_name="Slides_Detetives_da_Agua.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            )
+            st.download_button(label="💻 Baixar Apresentação (PPTX)", data=f, file_name="Slides_Detetives_da_Agua.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
     else:
         st.caption("⚠️ Arquivo 'material_aula.pptx' não encontrado na pasta raiz.")
 
-# --- SEÇÃO DO QUIZ INTERATIVO (CALIBRADO SOBRE CONSUMO E CONVERSÕES) ---
+# --- SEÇÃO DO QUIZ INTERATIVO ---
 st.divider()
 st.subheader("🧠 Desafio Interativo: O Quiz da Água")
 st.markdown("Responda às questões abaixo para testar seu conhecimento sobre o consumo e unidades de medidas hídricas:")
 
-# Banco de questões estruturado
 perguntas = {
     "q1": {
         "titulo": "1. Se um estudante toma um banho de 10 minutos com o chuveiro aberto (vazão de 15L/min), qual será o consumo total?",
@@ -96,14 +104,12 @@ perguntas = {
     }
 }
 
-# Renderização das perguntas no Streamlit
 r1 = st.radio(perguntas["q1"]["titulo"], perguntas["q1"]["opcoes"])
 st.write("")
 r2 = st.radio(perguntas["q2"]["titulo"], perguntas["q2"]["opcoes"])
 st.write("")
 r3 = st.radio(perguntas["q3"]["titulo"], perguntas["q3"]["opcoes"])
 
-# Botão de correção do Quiz
 if st.button("🏁 Corrigir Meu Quiz"):
     acertos = 0
     if r1 == perguntas["q1"]["correta"]: acertos += 1
