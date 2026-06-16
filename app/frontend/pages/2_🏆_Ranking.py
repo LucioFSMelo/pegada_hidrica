@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-from app.backend.database import ler_todos_dados, apagar_banco
+from app.backend.database import ler_todos_dados, verificar_login_professor, apagar_dados_por_turma, rotina_autolimpeza_15_dias
 from app.backend.calculator import TURMAS_OFICIAIS
 
 st.set_page_config(page_title="Gincana Hídrica", page_icon="🏆", layout="centered")
@@ -21,7 +21,7 @@ else:
     
     st.subheader("👑 Os Campeões da Economia (Pódio por Turma)")
     
-    # Renderização organizada por série
+    # Renderização do Pódio por Série
     for serie, turmas in zip(["8º Anos", "9º Anos"], [["8º A", "8º B", "8º C"], ["9º A", "9º B", "9º C"]]):
         st.markdown(f"#### **{serie}**")
         cols = st.columns(3)
@@ -56,15 +56,36 @@ else:
     st.pyplot(fig)
     plt.close(fig)
 
-    # Painel Administrativo Protegido
-    st.divider()
-    with st.expander("⚙️ Painel de Controle do Professor"):
-        senha_professor = st.text_input("Digite a senha de administrador:", type="password")
-        if senha_professor == "admin123":
-            st.success("🔓 Acesso liberado, Professor!")
-            if st.button("🗑️ Resetar Gincana (Apagar Banco SQLite)"):
-                apagar_banco()
-                st.success("Banco limpo!")
-                st.rerun()
-        elif senha_professor:
-            st.error("❌ Senha incorreta!")
+# --- ÁREA DE LOGIN EXCLUSIVA DO PROFESSOR (GERENCIAMENTO DE TURMA) ---
+st.divider()
+with st.expander("🔐 Painel de Gerenciamento do Professor"):
+    st.markdown("Faça login para limpar os dados da sua turma ou verificar a rotina de armazenamento.")
+    
+    usuario = st.text_input("Usuário do Professor:")
+    senha = st.text_input("Senha:", type="password")
+    
+    if st.button("Acessar Painel"):
+        turma_professor = verificar_login_professor(usuario, senha)
+        
+        if turma_professor:
+            st.session_state.logged_prof_turma = turma_professor
+            st.success(f"🔓 Bem-vindo! Você tem controle sobre os dados do **{turma_professor}**.")
+            
+            # Executa a limpeza automática em segundo plano (registros com mais de 15 dias somem)
+            rotina_autolimpeza_15_dias(turma_professor)
+            st.caption("🔄 A rotina de segurança verificou e removeu dados com mais de 15 dias desta turma.")
+        else:
+            st.error("❌ Usuário ou senha incorretos!")
+
+# Se o professor estiver logado na sessão, mostra os botões de ação dele
+if "logged_prof_turma" in st.session_state:
+    st.info(f"Gerenciando atualmente: **{st.session_state.logged_prof_turma}**")
+    
+    if st.button(f"🗑️ ZERAR todos os dados do {st.session_state.logged_prof_turma}"):
+        apagar_dados_por_turma(st.session_state.logged_prof_turma)
+        st.success(f"✅ Dados do {st.session_state.logged_prof_turma} apagados com sucesso!")
+        st.rerun()
+        
+    if st.button("🚪 Sair do Painel"):
+        del st.session_state.logged_prof_turma
+        st.rerun()
