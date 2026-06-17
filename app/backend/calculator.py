@@ -7,7 +7,7 @@ nos coeficientes de vazão padrão recomendados por órgãos de saneamento.
 
 # Constantes de vazão (Litros por minuto)
 VAZAO_CHUVEIRO = 15.0       
-VAZAO_TORNEIRA_PIA = 6.0    
+VAZAO_TORNEIRA_PIA = 9.0    
 
 def calcular_pegada(tempo_banho, chuveiro_fechado, tempo_escovacao, torneira_escovacao):
     # Banho
