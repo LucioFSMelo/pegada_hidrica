@@ -10,7 +10,12 @@ from app.backend.database import inicializar_banco
 # Garante que as tabelas do banco de dados (e o cadeado do professor) existam ao abrir o app
 inicializar_banco()
 
+# --- CONFIGURAÇÃO DA PÁGINA (Isso muda o título da aba no navegador) ---
 st.set_page_config(page_title="Detetives da Água - Home", page_icon="🏠", layout="centered")
+
+# --- TRUQUE VISUAL PARA REFORÇAR A "HOME" NA BARRA LATERAL ---
+st.sidebar.markdown("# 🏠 Home")
+st.sidebar.divider()
 
 # --- CONTEÚDO PRINCIPAL (HOME) ---
 st.title("🏠 Objeto Digital de Aprendizagem: Detetives da Água")
