@@ -1,0 +1,19 @@
+[[pages]]
+path = "app/frontend/main.py"
+name = "Home"
+icon = "🏠"
+
+[[pages]]
+path = "app/frontend/pages/1_👨‍🏫_Professor.py"
+name = "Professor"
+icon = "👨‍🏫"
+
+[[pages]]
+path = "app/frontend/pages/2_🧠_Quiz.py"
+name = "Quiz"
+icon = "🧠"
+
+[[pages]]
+path = "app/frontend/pages/3_🌱_Apoie.py"
+name = "Apoie o projeto"
+icon = "🌱"
