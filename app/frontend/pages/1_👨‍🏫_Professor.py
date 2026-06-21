@@ -27,6 +27,7 @@ from app.frontend.abas_professor.Ranking_aba import renderizar_ranking
 from app.frontend.abas_professor.Estatistica_aba import renderizar_estatistica
 from app.frontend.abas_professor.Funcoes_aba import renderizar_funcoes
 from app.frontend.abas_professor.Financeiro_aba import renderizar_financeiro
+from app.frontend.abas_professor.Dicas_aba import renderizar_dicas
 
 st.set_page_config(page_title="Painel do Professor", page_icon="👨‍🏫", layout="wide")
 
@@ -53,13 +54,14 @@ else:
         st.rerun()
 
     # Criação das abas visuais estilo Bootstrap/Dashboard
-    aba_gerenciar, aba_calc, aba_rank, aba_estat, aba_func, aba_finan = st.tabs([
+    aba_gerenciar, aba_calc, aba_rank, aba_estat, aba_func, aba_finan, aba_dicas = st.tabs([
         "⚙️ Gerenciar Gincana", 
         "📊 Calculadora", 
         "🏆 Ranking", 
         "📈 Estatística", 
         "🧮 Funções", 
-        "💰 Financeiro"
+        "💰 Financeiro",
+        "💡 Dicas e Missões"
     ])
 
     # Injeção de cada módulo dentro de sua respectiva Aba
@@ -104,3 +106,6 @@ else:
 
     with aba_finan:
         renderizar_financeiro()
+
+    with aba_dicas:
+        renderizar_dicas()
