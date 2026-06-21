@@ -30,17 +30,18 @@ def renderizar_home():
     4. Ao final, os alunos testam seus conhecimentos na aba **🧠 Quiz**.
     """)
 
-    # --- SEÇÃO DE DOWNLOAD (Com caminhos blindados) ---
+    # --- SEÇÃO DE DOWNLOAD (Apontando para a nova pasta assets) ---
     st.divider()
     st.subheader("📥 Baixar Material de Apoio da Aula")
-    st.markdown("Clique nos botões abaixo para baixar os slides e os guias em PDF utilizados nesta sequência didática:")
+    st.markdown("Clique nos botões abaixo para baixar a apresentação em slides ou em PDF utilizados nesta sequência didática:")
 
-    # Essa linha de mágica encontra a pasta "pegada_hidrica/" absoluta de forma automática
-    DIRETORIO_RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Encontra dinamicamente a pasta 'assets' dentro de 'frontend'
+    DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__))
+    PASTA_ASSETS = os.path.join(DIRETORIO_ATUAL, "assets")
 
-    # Monta o caminho exato para encontrar os arquivos na raiz, não importa onde o app esteja rodando
-    caminho_pdf = os.path.join(DIRETORIO_RAIZ, "MISSÃO_DETETIVES_DA_ÁGUA.pdf")
-    caminho_pptx = os.path.join(DIRETORIO_RAIZ, "MISSÃO_DETETIVES_DA_ÁGUA.pptx")
+    # Monta o caminho exato usando o nome que você definiu
+    caminho_pdf = os.path.join(PASTA_ASSETS, "MISSÃO_DETETIVES_DA_ÁGUA.pdf")
+    caminho_pptx = os.path.join(PASTA_ASSETS, "MISSÃO_DETETIVES_DA_ÁGUA.pptx")
 
     col_pdf, col_pptx = st.columns(2)
 
@@ -48,13 +49,13 @@ def renderizar_home():
         if os.path.exists(caminho_pdf):
             with open(caminho_pdf, "rb") as f:
                 st.download_button(
-                    label="📄 Baixar Guia em PDF", 
+                    label="📄 Baixar Apresentação em PDF", 
                     data=f, 
-                    file_name="Guia_Detetives.pdf", 
+                    file_name="Missao_Detetives_da_Agua.pdf", 
                     mime="application/pdf"
                 )
         else:
-            st.caption("⚠️ Arquivo PDF não encontrado na raiz do projeto.")
+            st.caption("⚠️ Arquivo PDF não encontrado na pasta assets.")
 
     with col_pptx:
         if os.path.exists(caminho_pptx):
@@ -62,11 +63,11 @@ def renderizar_home():
                 st.download_button(
                     label="💻 Baixar Apresentação (PPTX)", 
                     data=f, 
-                    file_name="Slides_Detetives.pptx", 
+                    file_name="Missao_Detetives_da_Agua.pptx", 
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )
         else:
-            st.caption("⚠️ Arquivo PPTX não encontrado na raiz do projeto.")
+            st.caption("⚠️ Arquivo PPTX não encontrado na pasta assets.")
 
     # --- RODAPÉ EMBUTIDO FIXO ---
     st.markdown(

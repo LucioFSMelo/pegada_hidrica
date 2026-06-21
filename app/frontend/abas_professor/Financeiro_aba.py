@@ -1,8 +1,16 @@
 import streamlit as st
-from app.backend.database import ler_todos_dados
+# 🔒 ALTERADO: Substituído o método global para ler registros restritos ao professor ativo
+from app.backend.database import ler_dados_por_professor
 
 def renderizar_financeiro():
     st.subheader("💰 Estação Consciência Financeira e Regra de Três")
+    
+    # 🔒 ADICIONADO: Captura e validação do token do professor logado na aplicação
+    prof_atual = st.session_state.get("prof_logado", None)
+    
+    if not prof_atual:
+        st.warning("⚠️ Identificação do professor não localizada. Faça login na Central de Comando.")
+        return
     
     with st.expander("📚 Ver Aplicação de Porcentagem e Frações"):
         st.markdown("""
@@ -12,13 +20,15 @@ def renderizar_financeiro():
         $$\\frac{5000}{1000} = 5 m^3$$
         """)
 
-    df_geral = ler_todos_dados()
+    # 🔒 ALTERADO: O dataframe agora recebe exclusivamente dados das turmas do professor logado
+    df_geral = ler_dados_por_professor(prof_atual)
     
     tarifa_m3 = st.number_input("Preço da Tarifa do $m^3$ de água local (R$):", min_value=1.0, max_value=30.0, value=6.50, step=0.10)
     
     if df_geral.empty:
         st.warning("Aguardando registros para estimar os impactos financeiros da turma.")
     else:
+        # Conversão matemática baseada apenas no subconjunto de dados deste professor
         litros_totais = df_geral["gasto_total"].sum()
         volume_m3 = litros_totais / 1000.0
         custo_real_total = volume_m3 * tarifa_m3
