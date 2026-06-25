@@ -85,7 +85,7 @@ elif modo_aula == "QUIZ":
     if "quiz_enviado" not in st.session_state:
         st.session_state.quiz_enviado = False
         
-    if st.session_state.quiz_enviated:
+    if st.session_state.quiz_enviado:
         st.success("🎉 Suas respostas foram computadas! Verifique o Placar Geral no projetor do professor.")
         if st.button("🔄 Responder Novamente (Caso o professor permita)"):
             st.session_state.quiz_enviado = False
