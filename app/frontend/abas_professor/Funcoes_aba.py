@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from app.backend.database import ler_todos_dados
+import sqlite3
+# Importação das funções do banco
+from app.backend.database import ler_dados_por_professor, DB_NAME, verificar_turma_liberada
 
 def renderizar_funcoes():
     st.subheader("🎲 Estação Probabilidade e Simulação de Eventos")
@@ -16,28 +18,39 @@ def renderizar_funcoes():
         * A probabilidade é sempre um valor de $0$ (evento impossível) a $1$ (evento certo), expressa frequentemente em formato percentual (%).
         """)
 
-    df_geral = ler_todos_dados()
+    # 🕵️‍♂️ LOGICA DE ACESSO HÍBRIDO (PROFESSOR OU ALUNO)
+    prof_atual = st.session_state.get("prof_logado", None)
+    turma_aluno = verificar_turma_liberada()
+
+    if prof_atual:
+        # Se for o professor visualizando, puxa tudo dele
+        df_geral = ler_dados_por_professor(prof_atual)
+    elif turma_aluno != "FECHADO":
+        # Se for o aluno, puxa apenas os dados da turma atual dele
+        conn = sqlite3.connect(DB_NAME)
+        df_geral = pd.read_sql_query("SELECT * FROM consumo WHERE turma = ?", conn, params=(turma_aluno,))
+        conn.close()
+    else:
+        st.warning("⚠️ Acesso restrito ou turma fechada.")
+        return
     
     if df_geral.empty:
         st.warning("📥 É necessário ter dados cadastrados na gincana para rodar as simulações probabilísticas reais.")
     else:
         st.markdown("### 🔮 Simulador: O Sorteio Aleatório de Alunos")
         st.markdown("""
-        Imagine a situação: se o professor sortear **um aluno ao acaso** dentro desta gincana para ser o líder ecológico, 
-        quais são as chances probabilísticas baseadas nos comportamentos atuais da turma?
+        Imagine a situação: se sortearmos **um aluno ao acaso** dentro desta gincana para ser o líder ecológico, 
+        quais são as chances probabilísticas baseadas nos comportamentos atuais?
         """)
         
-        # Espaço amostral n(Omega)
         total_alunos = len(df_geral)
-        
-        # Eventos categorizados
         alunos_economicos = len(df_geral[df_geral["gasto_total"] <= 110])
         alunos_desperdicio = len(df_geral[df_geral["gasto_total"] > 110])
         
-        prob_eco = (alunos_economicos / total_alunos) * 100
-        prob_desp = (alunos_desperdicio / total_alunos) * 100
+        prob_eco = (alunos_economicos / total_alunos) * 100 if total_alunos > 0 else 0
+        prob_desp = (alunos_desperdicio / total_alunos) * 100 if total_alunos > 0 else 0
         
-        st.info(f"**Tamanho do Espaço Amostral ($n(\\Omega)$):** {total_alunos} alunos participando.")
+        st.info(f"**Tamanho do Espaço Amostral ($n(\\Omega)$):** {total_alunos} alunos participando do universo atual.")
         
         c1, c2 = st.columns(2)
         with c1:

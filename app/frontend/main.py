@@ -19,18 +19,20 @@ def renderizar_home():
     st.subheader("**🚱 Missão: Pegada Hídrica**", text_alignment="center")
     st.markdown("---")
 
+    # 🔄 TEXTO ATUALIZADO: Refletindo a nova dinâmica centralizada no painel do Aluno
     st.markdown("""
     ### 🍏 Guia de Orientação e Funcionalidades
     Bem-vindo ao ecossistema **Detetives da Água**! Este projeto integra conceitos da BNCC através da computação prática e análise de dados reais coletados pelos próprios estudantes.
 
     **Como funciona a dinâmica da aula?**
-    1. O professor acessa a aba **👨‍🏫 Professor** (no menu lateral), faz o login e **Destranca a Gincana** para a turma atual.
-    2. Os alunos acessam a aba **📊 Calculadora** (que só abrirá se estiver destrancada) e inserem seus dados de consumo.
-    3. Todos acompanham os resultados nas estações de **Ranking, Estatística, Funções e Financeiro**.
-    4. Ao final, os alunos testam seus conhecimentos na aba **🧠 Quiz**.
+    1. O professor acessa a aba **👨‍🏫 Professor** (no menu lateral), faz o login e **abre o acesso** para a turma atual.
+    2. Os alunos acessam a aba **👨‍🎓 Aluno** no menu lateral, digitam seu nome e entram na sala de aula virtual.
+    3. O professor escolhe qual ferramenta os alunos vão usar no seu painel de controle (Calculadora, Funções ou Financeiro).
+    4. A tela dos alunos mudará **automaticamente** em tempo real!
+    5. Ao final, o professor libera o **🎮 Game Quiz** pelo painel, os alunos respondem na tela deles e o pódio ao vivo aparece na projeção do professor!
     """)
 
-    # --- SEÇÃO DE DOWNLOAD (Apontando para a nova pasta assets) ---
+    # --- SEÇÃO DE DOWNLOAD (Apontando para a pasta assets) ---
     st.divider()
     st.subheader("📥 Baixar Material de Apoio da Aula")
     st.markdown("Clique nos botões abaixo para baixar a apresentação em slides ou em PDF utilizados nesta sequência didática:")
@@ -84,15 +86,17 @@ def renderizar_home():
 # =====================================================================
 # 🥾 BOOTSTRAP DE NAVEGAÇÃO PROFISSIONAL (Via Função Callback)
 # =====================================================================
-# Mapeia as páginas e passa a função renderizar_home para evitar o erro de recursão (loop infinito)
+# Instancia os caminhos de roteamento das páginas internas
 pagina_home = st.Page(renderizar_home, title="Home", icon="🏠", default=True)
 pagina_prof = st.Page("pages/1_👨‍🏫_Professor.py", title="Professor", icon="👨‍🏫")
-pagina_quiz = st.Page("pages/2_🧠_Quiz.py", title="Quiz", icon="🧠")
+
+# 🔄 MODIFICADO: Removemos a rota do Quiz antigo e injetamos o ecossistema do Aluno
+pagina_aluno = st.Page("pages/2_👨‍🎓_Aluno.py", title="Aluno", icon="👨‍🎓")
 pagina_apoi = st.Page("pages/3_🌱_Apoie.py", title="Apoie o projeto", icon="🌱")
 
-# O gerenciador de rotas agrupa as páginas no menu lateral nativamente
-pg = st.navigation([pagina_home, pagina_prof, pagina_quiz, pagina_apoi])
+# 🔄 MODIFICADO: Atualização da lista do gerenciador de rotas com a nova página
+pg = st.navigation([pagina_home, pagina_prof, pagina_aluno, pagina_apoi])
 
-# Executa o roteador (Isso configura o título, ícone e renderiza a página selecionada com segurança)
+# Executa o roteador seguro do Streamlit
 pg.run()
 # =====================================================================

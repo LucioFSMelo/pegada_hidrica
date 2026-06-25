@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-# Importamos as funções corrigidas e isoladas por professor do backend
+# Importamos as funções originais do seu banco de dados
 from app.backend.database import (
     ler_dados_por_professor, 
     buscar_turmas_do_professor, 
@@ -10,14 +10,14 @@ from app.backend.database import (
 def renderizar_ranking():
     st.subheader("🏆 Placar da Gincana Hídrica")
     
-    # 🔒 Recupera o professor logado na sessão para isolar os dados das escolas/professores
+    # 🔒 Recupera o professor logado na sessão para isolar os dados
     prof_atual = st.session_state.get("prof_logado", None)
     
     if not prof_atual:
         st.warning("⚠️ Identificação do professor não localizada. Faça login na Central de Comando.")
         return
 
-    # 1. CARREGA O RANKING DAS TURMAS (Usando a nova função agregada do backend)
+    # 1. CARREGA O RANKING DAS TURMAS
     ranking_turmas = obter_ranking_melhores_turmas(prof_atual)
     
     if ranking_turmas.empty:
@@ -25,7 +25,7 @@ def renderizar_ranking():
     else:
         st.markdown("### 🥇 Ranking das Turmas Mais Econômicas (Menor Média vence!)")
         
-        # O backend já traz ordenado por menor consumo, basta renderizar as medalhas
+        # Renderização das medalhas por média de consumo
         for i, linha in ranking_turmas.reset_index(drop=True).iterrows():
             medalha = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "🏅"
             st.info(
@@ -40,7 +40,7 @@ def renderizar_ranking():
         st.bar_chart(data=ranking_turmas, x="turma", y="media_consumo")
         
         # =====================================================================
-        # 🕵️‍♂️ NOVA SEÇÃO: RANKING DOS ALUNOS MAIS ECONÔMICOS
+        # 🕵️‍♂️ RANKING DOS ALUNOS MAIS ECONÔMICOS
         # =====================================================================
         st.divider()
         st.markdown("### 🏆 Ranking dos Alunos Mais Econômicos")
@@ -50,7 +50,6 @@ def renderizar_ranking():
         turmas_do_prof = buscar_turmas_do_professor(prof_atual)
         opcoes_filtro = ["Geral (Todas as minhas turmas)"] + turmas_do_prof
         
-        # Caixa de seleção para filtrar o ranking na mesma tela
         filtro_aluno = st.selectbox(
             "Filtrar ranking de alunos por:", 
             opcoes_filtro, 
@@ -68,18 +67,18 @@ def renderizar_ranking():
                 df_filtrado = df_alunos
                 
             if not df_filtrado.empty:
-                # Ordena os alunos do menor gasto para o maior (Menos gasto = 1º lugar)
+                # Ordena os alunos do menor gasto para o maior usando a coluna 'gasto_total'
                 df_ranking_alunos = df_filtrado.sort_values(by="gasto_total", ascending=True).reset_index(drop=True)
                 df_ranking_alunos.index += 1 # Ajusta o índice para exibir 1º, 2º...
                 
-                # Modifica temporariamente os nomes das colunas para exibição na tabela
+                # Mapeia os nomes das colunas originais do seu banco para exibição na tabela
                 df_exibicao = df_ranking_alunos[["nome", "turma", "gasto_total"]].copy()
                 df_exibicao.columns = ["Detetive 🕵️‍♂️", "Turma 🏫", "Consumo Total (Litros) 💧"]
                 
-                # Desenha a tabela com design responsivo
+                # Desenha a tabela estilizada
                 st.dataframe(df_exibicao, use_container_width=True)
                 
-                # Mensagem honorária de sucesso para o líder do ranking selecionado
+                # Mensagem honorária para o líder do ranking selecionado
                 lider_atual = df_ranking_alunos.iloc[0]
                 st.success(
                     f"🌟 **Destaque:** O detetive **{lider_atual['nome']}** da turma **{lider_atual['turma']}** "
@@ -89,4 +88,3 @@ def renderizar_ranking():
                 st.info(f"Nenhum aluno da turma '{filtro_aluno}' realizou o envio de dados até o momento.")
         else:
             st.info("Nenhum dado de consumo individual localizado.")
-        

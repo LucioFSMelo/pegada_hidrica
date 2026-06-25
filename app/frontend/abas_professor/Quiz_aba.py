@@ -1,7 +1,6 @@
 import streamlit as st
 import random
-
-st.set_page_config(page_title="Quiz da Água", page_icon="🧠", layout="centered")
+from app.backend.database import salvar_pontuacao_quiz
 
 # Banco de 20 questões dinâmicas com explicações pedagógicas integradas
 BANCO_QUESTOES = [
@@ -127,86 +126,71 @@ BANCO_QUESTOES = [
     }
 ]
 
-# Inicializa as variáveis de jogo de forma robusta
-if 'quiz_rodada' not in st.session_state:
-    st.session_state.quiz_rodada = random.sample(BANCO_QUESTOES, 5) # Sorteia 5 dinamicamente
-    st.session_state.questao_atual = 0
-    st.session_state.pontuacao = 0
-    st.session_state.quiz_finalizado = False
-    st.session_state.respondido = False
-    st.session_state.resposta_salva = None
-
-st.title("🧠 O Grande Quiz da Água")
-
-if not st.session_state.quiz_finalizado:
-    idx = st.session_state.questao_atual
-    pergunta = st.session_state.quiz_rodada[idx]
-    
-    st.markdown(f"### Pergunta {idx + 1} de 5:")
-    st.markdown(f"#### **{pergunta['q']}**")
-    
-    # Se o aluno já respondeu, desabilita as opções para ele não trapacear antes de ir para a próxima
-    resposta_escolhida = st.radio(
-        "Selecione sua resposta:", 
-        pergunta["opcoes"], 
-        index=None if not st.session_state.respondido else pergunta["opcoes"].index(st.session_state.resposta_salva),
-        disabled=st.session_state.respondido,
-        key=f"radio_q_{idx}"
-    )
-    
-    st.divider()
-    
-    # Fluxo em Dois Tempos: Tempo 1 (Confirmar), Tempo 2 (Avançar)
-    if not st.session_state.respondido:
-        if st.button("Confirmar Resposta", use_container_width=True):
-            if resposta_escolhida:
-                st.session_state.respondido = True
-                st.session_state.resposta_salva = resposta_escolhida
-                if resposta_escolhida == pergunta["correta"]:
-                    st.session_state.pontuacao += 1
-                st.rerun()
-            else:
-                st.warning("⚠️ Selecione uma opção antes de confirmar!")
-    else:
-        # Apresentação do Veredito Pedagógico
-        if st.session_state.resposta_salva == pergunta["correta"]:
-            st.success(f"🎯 **Resposta Correta!** Você marcou: {pergunta['correta']}")
-        else:
-            st.error(f"❌ **Incorreto.** Você marcou '{st.session_state.resposta_salva}'. A alternativa certa era: {pergunta['correta']}")
-            
-        # Exibição da Explicação com base nos arquivos didáticos fornecidos
-        st.info(f"💡 **Explicação Detetive:** {pergunta['explicacao']}")
-        
-        # Botão para ir de fato ao próximo elemento
-        if st.button("Próxima Pergunta ➡️", use_container_width=True):
-            st.session_state.questao_atual += 1
-            st.session_state.respondido = False
-            st.session_state.resposta_salva = None
-            
-            if st.session_state.questao_atual >= 5:
-                st.session_state.quiz_finalizado = True
-            st.rerun()
-
-else:
-    # Tela Final de Resultados Consolidados
-    st.balloons()
-    st.header("🏆 Quiz Concluído!")
-    st.metric("Sua Pontuação Final", f"{st.session_state.pontuacao} acertos de 5 perguntas")
-    
-    # Mensagens de Feedback Orientado por Faixa de Desempenho
-    if st.session_state.pontuacao == 5:
-        st.success("🟢 Mestre da Sustentabilidade! Você gabaritou e provou ser um verdadeiro Detetive da Água!")
-    elif st.session_state.pontuacao >= 3:
-        st.info("🔵 Muito bom! Demonstrou grande conhecimento, mas revise os materiais para ficar impecável.")
-    else:
-        st.warning("⚠️ Precisamos estudar mais os recursos hídricos! Baixe o guia na Home e tente de novo.")
-        
-    if st.button("🔄 Jogar Novamente (Sortear Novas Perguntas)"):
-        # Limpa o cache específico da rodada para que o random.sample rode de novo
-        del st.session_state.quiz_rodada
+def renderizar_quiz_aluno(nome_aluno, turma_atual):
+    # Inicializa as variáveis se não existirem
+    if 'quiz_rodada' not in st.session_state:
+        st.session_state.quiz_rodada = random.sample(BANCO_QUESTOES, 5)
         st.session_state.questao_atual = 0
         st.session_state.pontuacao = 0
         st.session_state.quiz_finalizado = False
         st.session_state.respondido = False
         st.session_state.resposta_salva = None
-        st.rerun()
+
+    if not st.session_state.quiz_finalizado:
+        idx = st.session_state.questao_atual
+        pergunta = st.session_state.quiz_rodada[idx]
+        
+        st.markdown(f"### 🧠 Pergunta {idx + 1} de 5:")
+        st.markdown(f"#### **{pergunta['q']}**")
+        
+        resposta_escolhida = st.radio(
+            "Selecione sua resposta:", 
+            pergunta["opcoes"], 
+            index=None if not st.session_state.respondido else pergunta["opcoes"].index(st.session_state.resposta_salva),
+            disabled=st.session_state.respondido,
+            key=f"radio_q_{idx}"
+        )
+        
+        st.divider()
+        
+        if not st.session_state.respondido:
+            if st.button("Confirmar Resposta", use_container_width=True):
+                if resposta_escolhida:
+                    st.session_state.respondido = True
+                    st.session_state.resposta_salva = resposta_escolhida
+                    
+                    # 🔄 ALTERADO: Regra de pontuação Gamificada (+3 / -1)
+                    if resposta_escolhida == pergunta["correta"]:
+                        st.session_state.pontuacao += 3
+                    else:
+                        st.session_state.pontuacao -= 1
+                        
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Selecione uma opção antes de confirmar!")
+        else:
+            if st.session_state.resposta_salva == pergunta["correta"]:
+                st.success(f"🎯 **Resposta Correta! (+3 Pontos)**")
+            else:
+                st.error(f"❌ **Incorreto. (-1 Ponto)** A alternativa certa era: {pergunta['correta']}")
+                
+            st.info(f"💡 **Explicação Detetive:** {pergunta['explicacao']}")
+            
+            if st.button("Próxima Pergunta ➡️", use_container_width=True):
+                st.session_state.questao_atual += 1
+                st.session_state.respondido = False
+                st.session_state.resposta_salva = None
+                
+                # 💾 NOVO: Se o quiz acabou, salva a pontuação automaticamente no banco
+                if st.session_state.questao_atual >= 5:
+                    st.session_state.quiz_finalizado = True
+                    salvar_pontuacao_quiz(nome_aluno, turma_atual, st.session_state.pontuacao)
+                    
+                st.rerun()
+
+    else:
+        # Tela Final
+        st.balloons()
+        st.header("🏆 Quiz Concluído!")
+        st.metric("Sua Pontuação Final", f"{st.session_state.pontuacao} Pontos")
+        st.success("Seus pontos já foram enviados para a Central do Professor. Aguarde os resultados!")

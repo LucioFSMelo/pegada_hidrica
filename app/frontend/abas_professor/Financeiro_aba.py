@@ -1,16 +1,10 @@
 import streamlit as st
-# 🔒 ALTERADO: Substituído o método global para ler registros restritos ao professor ativo
-from app.backend.database import ler_dados_por_professor
+import pandas as pd
+import sqlite3
+from app.backend.database import ler_dados_por_professor, DB_NAME, verificar_turma_liberada
 
 def renderizar_financeiro():
     st.subheader("💰 Estação Consciência Financeira e Regra de Três")
-    
-    # 🔒 ADICIONADO: Captura e validação do token do professor logado na aplicação
-    prof_atual = st.session_state.get("prof_logado", None)
-    
-    if not prof_atual:
-        st.warning("⚠️ Identificação do professor não localizada. Faça login na Central de Comando.")
-        return
     
     with st.expander("📚 Ver Aplicação de Porcentagem e Frações"):
         st.markdown("""
@@ -20,15 +14,25 @@ def renderizar_financeiro():
         $$\\frac{5000}{1000} = 5 m^3$$
         """)
 
-    # 🔒 ALTERADO: O dataframe agora recebe exclusivamente dados das turmas do professor logado
-    df_geral = ler_dados_por_professor(prof_atual)
-    
     tarifa_m3 = st.number_input("Preço da Tarifa do $m^3$ de água local (R$):", min_value=1.0, max_value=30.0, value=6.50, step=0.10)
+
+    # 🕵️‍♂️ LOGICA DE ACESSO HÍBRIDO (PROFESSOR OU ALUNO)
+    prof_atual = st.session_state.get("prof_logado", None)
+    turma_aluno = verificar_turma_liberada()
+
+    if prof_atual:
+        df_geral = ler_dados_por_professor(prof_atual)
+    elif turma_aluno != "FECHADO":
+        conn = sqlite3.connect(DB_NAME)
+        df_geral = pd.read_sql_query("SELECT * FROM consumo WHERE turma = ?", conn, params=(turma_aluno,))
+        conn.close()
+    else:
+        st.warning("⚠️ Acesso restrito ou turma fechada.")
+        return
     
     if df_geral.empty:
-        st.warning("Aguardando registros para estimar os impactos financeiros da turma.")
+        st.warning("📥 Aguardando registros para estimar os impactos financeiros da turma.")
     else:
-        # Conversão matemática baseada apenas no subconjunto de dados deste professor
         litros_totais = df_geral["gasto_total"].sum()
         volume_m3 = litros_totais / 1000.0
         custo_real_total = volume_m3 * tarifa_m3
@@ -42,4 +46,4 @@ def renderizar_financeiro():
         col1, col2, col3 = st.columns(3)
         col1.metric("Volume Geral Coletado", f"{volume_m3:.3f} m³")
         col2.metric("Custo Total da Água", f"R$ {custo_real_total:.2f}")
-        col3.metric(f"Economia de Financ. ({porcentagem_meta}%)", f"R$ {economia_dinheiro:.2f}", delta="Poupado")
+        col3.metric(f"Economia Financ. ({porcentagem_meta}%)", f"R$ {economia_dinheiro:.2f}", delta="Poupado")
