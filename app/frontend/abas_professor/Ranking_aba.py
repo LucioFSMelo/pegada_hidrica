@@ -76,7 +76,7 @@ def renderizar_ranking():
                 df_exibicao.columns = ["Detetive 🕵️‍♂️", "Turma 🏫", "Consumo Total (Litros) 💧"]
                 
                 # Desenha a tabela estilizada
-                st.dataframe(df_exibicao, use_container_width=True)
+                st.dataframe(df_exibicao, width="stretch")
                 
                 # Mensagem honorária para o líder do ranking selecionado
                 lider_atual = df_ranking_alunos.iloc[0]

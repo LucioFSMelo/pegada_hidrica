@@ -49,7 +49,7 @@ def renderizar_calculadora():
             st.session_state.dados_enviados = False
             st.rerun()
     else:
-        if st.button("💾 Salvar Registro no Banco de Dados", use_container_width=True):
+        if st.button("💾 Salvar Registro no Banco de Dados", width="stretch"):
             
             # ==========================================================
             # 🚨 BARREIRA DE VALIDAÇÃO PEDAGÓGICA
@@ -71,7 +71,11 @@ def renderizar_calculadora():
                 
             # Se passou por todas as barreiras sem erros, salva usando a ordem original do banco
             else:
-                salvar_no_banco(nome_aluno.strip(), turma_ativa, l_banho, l_escova, l_total)
+                # Puxa a escola que o aluno fez login lá na tela inicial
+                escola_ativa = st.session_state.get("escola_ativa_calc", "Escola Padrão")
+
+                # Salva enviando os 6 itens obrigatórios: nome, turma, ESCOLA, banho, escova, total
+                salvar_no_banco(nome_aluno.strip(), turma_ativa, escola_ativa, l_banho, l_escova, l_total)
                 st.session_state.dados_enviados = True
                 st.success("Salvo com sucesso!")
                 st.rerun()

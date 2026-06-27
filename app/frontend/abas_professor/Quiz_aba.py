@@ -1,6 +1,6 @@
 import streamlit as st
 import random
-from app.backend.database import salvar_pontuacao_quiz
+from app.backend.database import registrar_nota_quiz  # Trocamos salvar_pontuacao_quiz
 
 # Banco de 20 questões dinâmicas com explicações pedagógicas integradas
 BANCO_QUESTOES = [
@@ -126,8 +126,8 @@ BANCO_QUESTOES = [
     }
 ]
 
-def renderizar_quiz_aluno(nome_aluno, turma_atual):
-    # Inicializa as variáveis se não existirem
+# Função Atualizada ---- Exige escola do aluno -----
+def renderizar_quiz_aluno(nome_aluno, escola_atual, turma_atual):
     if 'quiz_rodada' not in st.session_state:
         st.session_state.quiz_rodada = random.sample(BANCO_QUESTOES, 5)
         st.session_state.questao_atual = 0
@@ -154,12 +154,11 @@ def renderizar_quiz_aluno(nome_aluno, turma_atual):
         st.divider()
         
         if not st.session_state.respondido:
-            if st.button("Confirmar Resposta", use_container_width=True):
+            if st.button("Confirmar Resposta", type="primary"):
                 if resposta_escolhida:
                     st.session_state.respondido = True
                     st.session_state.resposta_salva = resposta_escolhida
                     
-                    # 🔄 ALTERADO: Regra de pontuação Gamificada (+3 / -1)
                     if resposta_escolhida == pergunta["correta"]:
                         st.session_state.pontuacao += 3
                     else:
@@ -176,20 +175,19 @@ def renderizar_quiz_aluno(nome_aluno, turma_atual):
                 
             st.info(f"💡 **Explicação Detetive:** {pergunta['explicacao']}")
             
-            if st.button("Próxima Pergunta ➡️", use_container_width=True):
+            if st.button("Próxima Pergunta ➡️"):
                 st.session_state.questao_atual += 1
                 st.session_state.respondido = False
                 st.session_state.resposta_salva = None
                 
-                # 💾 NOVO: Se o quiz acabou, salva a pontuação automaticamente no banco
                 if st.session_state.questao_atual >= 5:
                     st.session_state.quiz_finalizado = True
-                    salvar_pontuacao_quiz(nome_aluno, turma_atual, st.session_state.pontuacao)
+                    # AQUI: Chamamos a função do banco passando a ESCOLA, TURMA, NOME e PONTOS
+                    registrar_nota_quiz(escola_atual, turma_atual, nome_aluno, st.session_state.pontuacao)
                     
                 st.rerun()
 
     else:
-        # Tela Final
         st.balloons()
         st.header("🏆 Quiz Concluído!")
         st.metric("Sua Pontuação Final", f"{st.session_state.pontuacao} Pontos")

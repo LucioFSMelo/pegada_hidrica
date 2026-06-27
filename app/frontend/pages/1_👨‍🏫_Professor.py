@@ -1,288 +1,218 @@
-import sys
-import os
 import streamlit as st
+import pandas as pd
+import time
+import requests # <--- BIBLIOTECA PARA ACESSAR O IBGE
 
-# =====================================================================
-# 🗃️ BLINDAGEM DE CONFIGURAÇÃO DE CAMINHO ABSOLUTO
-# =====================================================================
-# Garante que o Python encontre os módulos do projeto independente de onde o app foi iniciado.
-DIRETORIO_ATUAL = os.path.dirname(os.path.abspath(__file__)) 
-PASTA_FRONTEND = os.path.dirname(DIRETORIO_ATUAL)            
-PASTA_APP = os.path.dirname(PASTA_FRONTEND)                  
-RAIZ_PROJETO = os.path.dirname(PASTA_APP)                    
 
-if RAIZ_PROJETO not in sys.path:
-    sys.path.insert(0, RAIZ_PROJETO)
-
-# --- IMPORTS DO BACKEND (Controle de Banco de Dados e Segurança) ---
 from app.backend.database import (
-    login_ou_cadastro_professor, 
-    adicionar_turma, 
-    buscar_turmas_do_professor, 
-    definir_turma_liberada, 
-    verificar_turma_liberada, 
-    apagar_dados_por_turma,
-    verificar_email_professor,
-    redefinir_senha_professor,
-    deletar_turma_completa,
-    definir_modo_aula,       # ✨ NOVO: Envia o comando da tela atual para o banco
-    verificar_modo_aula,     # ✨ NOVO: Lê o status da tela ativa
-    obter_ranking_quiz       # ✨ NOVO: Puxa as pontuações do quiz (+3/-1) ordenadas
+    cadastrar_professor_completo,
+    login_professor_completo,
+    buscar_escolas_do_professor,
+    buscar_turmas_da_escola,
+    importar_alunos_via_dataframe,
+    atualizar_controle_aula
 )
 
-# --- IMPORTS EXCLUSIVOS DAS ABAS DO PROFESSOR (Interface Modular) ---
-from app.frontend.abas_professor.Calculadora_aba import renderizar_calculadora
-from app.frontend.abas_professor.Ranking_aba import renderizar_ranking
-from app.frontend.abas_professor.Estatistica_aba import renderizar_estatistica
-from app.frontend.abas_professor.Funcoes_aba import renderizar_funcoes
-from app.frontend.abas_professor.Financeiro_aba import renderizar_financeiro
-from app.frontend.abas_professor.Dicas_aba import renderizar_dicas
+from app.frontend.Trilhas_Pedagogicas import (
+    renderizar_trilha_matematica, renderizar_trilha_fisica,
+    renderizar_trilha_portugues, renderizar_trilha_geografia,
+    renderizar_trilha_ciencias
+)
 
-# Configuração da Página do Streamlit
-st.set_page_config(page_title="Painel do Professor", page_icon="👨‍🏫", layout="wide")
+from app.frontend.abas_professor.Resultados_Quiz_aba import renderizar_aba_resultados_quiz
 
-st.title("👨‍🏫 Central de Comando do Professor")
+st.set_page_config(page_title="Central do Professor", page_icon="👨‍🏫", layout="wide")
 
 # =====================================================================
-# 🔐 BLINKAGEM E CONTROLE DE ACESSO (LOGIN / CADASTRO)
+# 🌐 FUNÇÃO DE BUSCA NO IBGE (MÁGICA DO DROPDOWN)
+# =====================================================================
+@st.cache_data(show_spinner=False)
+def carregar_municipios_ibge(uf):
+    """Busca a lista de municípios na API pública do IBGE baseada na UF."""
+    try:
+        url = f"https://servicodados.ibge.gov.br/api/v1/localidades/estados/{uf}/municipios"
+        resposta = requests.get(url, timeout=5)
+        if resposta.status_code == 200:
+            dados = resposta.json()
+            # Retorna apenas os nomes das cidades, em ordem alfabética
+            return [cidade['nome'] for cidade in dados]
+    except Exception:
+        pass
+    # Se der erro ou o IBGE estiver fora do ar, libera para o professor digitar
+    return ["Digite o município..."]
+
+# =====================================================================
+# 🔐 SISTEMA DE LOGIN E CADASTRO
 # =====================================================================
 if "prof_logado" not in st.session_state:
-    st.markdown("### 🔐 Área Restrita do Orientador")
+    st.title("👨‍🏫 Central de Comando Multidisciplinar")
+    st.write("Painel de gerenciamento escolar, orquestração de turmas e estações pedagógicas.")
     
-    usuario = st.text_input("Usuário (Login):").strip()
-    senha = st.text_input("Senha:", type="password").strip()
+    aba_login, aba_cadastro = st.tabs(["🔑 Login", "📝 Novo Cadastro"])
     
-    # Campo explicativo de e-mail para blindar novos cadastros
-    email_cadastro = st.text_input(
-        "E-mail (Obrigatório apenas para novos cadastros):", 
-        help="Caso você já tenha uma conta, deixe em branco. Se for seu primeiro acesso, digite seu e-mail para recuperação de senha offline."
-    ).strip()
-    
-    if st.button("Acessar / Criar Conta", use_container_width=True):
-        if usuario == "" or senha == "":
-            st.error("⚠️ Preencha usuário e senha.")
-        else:
-            # Envia os dados para autenticação ou cadastro seguro usando SHA-256 no banco
-            status = login_ou_cadastro_professor(usuario, senha, email_cadastro)
+    with aba_login:
+        with st.form("form_login"):
+            email_login = st.text_input("E-mail:")
+            senha_login = st.text_input("Senha:", type="password")
+            submit_login = st.form_submit_button("Acessar Painel")
             
-            if status == "SENHA_INCORRETA": 
-                st.error("❌ Senha incorreta!")
-            elif status == "CAMPOS_VAZIOS": 
-                st.error("⚠️ Preencha usuário e senha.")
-            else:
-                st.session_state.prof_logado = usuario
-                st.rerun()
-                
-    # --- GAVETA DE RECUPERAÇÃO DE SENHA POR E-MAIL OFFLINE ---
-    st.markdown("---")
-    with st.expander("🔑 Esqueci minha senha (Validação Local)"):
-        st.caption("Esqueceu suas credenciais? Digite seu usuário e e-mail cadastrado para criar uma nova senha na hora, sem precisar de internet.")
-        
-        rec_usuario = st.text_input("Digite seu Usuário:", key="rec_user").strip()
-        rec_email = st.text_input("Digite seu E-mail Cadastrado:", key="rec_mail").strip()
-        
-        if st.button("🔓 Verificar Identidade", use_container_width=True):
-            if rec_usuario == "" or rec_email == "":
-                st.error("Por favor, preencha os dois campos para validação.")
-            elif verificar_email_professor(rec_usuario, rec_email):
-                st.session_state["autorizado_redefinir"] = rec_usuario.lower()
-                st.success("🎯 Identidade confirmada com sucesso! Crie sua nova senha no formulário abaixo.")
-            else:
-                st.error("❌ Usuário ou E-mail incorretos. Tente novamente.")
-                
-        # Exibe o formulário de redefinição se o e-mail bater com o registro local
-        if "autorizado_redefinir" in st.session_state and st.session_state["autorizado_redefinir"] == rec_usuario.lower():
-            st.markdown("#### Cadastrar Nova Senha")
-            nova_senha = st.text_input("Digite a nova senha:", type="password", key="n_pass1")
-            nova_senha_conf = st.text_input("Confirme a nova senha:", type="password", key="n_pass2")
-            
-            if st.button("💾 Salvar Nova Senha", use_container_width=True):
-                if len(nova_senha) < 4:
-                    st.warning("Escolha uma senha com pelo menos 4 caracteres.")
-                elif nova_senha != nova_senha_conf:
-                    st.error("⚠️ As senhas digitadas não coincidem.")
-                else:
-                    if redefinir_senha_professor(rec_usuario, nova_senha):
-                        st.success("✅ Senha atualizada! Você já pode fechar este menu e fazer o login.")
-                        del st.session_state["autorizado_redefinir"]
-                    else:
-                        st.error("Erro interno ao atualizar o banco de dados.")
-
-else:
-    # =====================================================================
-    # 💻 INTERFACE PRINCIPAL DO PAINEL DO PROFESSOR (LOGADO)
-    # =====================================================================
-    st.sidebar.success(f"Sessão Ativa: {st.session_state.prof_logado}")
-    if st.sidebar.button("🚪 Sair do Painel"):
-        del st.session_state.prof_logado
-        st.rerun()
-
-    # ✨ ATUALIZADO: Criação das abas incluindo a nova central do "Game Quiz"
-    aba_gerenciar, aba_calc, aba_rank, aba_estat, aba_func, aba_finan, aba_dicas, aba_quiz = st.tabs([
-        "⚙️ Gerenciar Gincana", 
-        "📊 Calculadora", 
-        "🏆 Ranking Consumo", 
-        "📈 Estatística", 
-        "🧮 Funções", 
-        "💰 Financeiro",
-        "💡 Dicas e Missões",
-        "🎮 Game Quiz" # Nova aba de monitoramento ao vivo do Quiz
-    ])
-
-    # -----------------------------------------------------------------
-    # ⚙️ ABA: GERENCIAR GINCANA (Orquestração e Cadeados)
-    # -----------------------------------------------------------------
-    with aba_gerenciar:
-        st.subheader("⚙️ Configurações Gerais e Direção de Aula")
-        col_c, col_l = st.columns(2)
-        
-        with col_c:
-            st.markdown("#### 📝 Cadastrar Turma")
-            nova_turma = st.text_input("Nome (Ex: 6º ANO B):").strip()
-            if st.button("Cadastrar", use_container_width=True):
-                if nova_turma and adicionar_turma(st.session_state.prof_logado, nova_turma):
-                    st.success("Cadastrada!")
-                    st.rerun()
-                else: 
-                    st.error("Turma já existente ou campo vazio.")
-                    
-        with col_l:
-            st.markdown("#### 🔓 Liberar e Orquestrar Aplicativo")
-            turmas_do_prof = buscar_turmas_do_professor(st.session_state.prof_logado)
-            
-            # Mostra o status global do sistema para o professor saber o que está ativo
-            col_status1, col_status2 = st.columns(2)
-            with col_status1:
-                st.metric("Turma Liberada:", verificar_turma_liberada())
-            with col_status2:
-                st.metric("Atividade Ativa:", verificar_modo_aula())
-            
-            if turmas_do_prof:
-                t_sel = st.selectbox("Selecione a turma para gerenciar:", turmas_do_prof)
-                
-                if st.button("🟢 ABRIR Acesso à Turma", use_container_width=True):
-                    definir_turma_liberada(t_sel)
-                    st.rerun()
-                    
-                if st.button("🔴 FECHAR Acesso Geral", use_container_width=True):
-                    definir_turma_liberada("FECHADO")
-                    definir_modo_aula("FECHADO") # Bloqueia também as atividades dos alunos
-                    st.rerun()
-                
-                st.markdown("---")
-                st.markdown("#### 📱 Diretor de Aula (Mudar Tela dos Alunos)")
-                st.caption("Escolha qual funcionalidade aparecerá instantaneamente nos dispositivos dos alunos.")
-                
-                # Seletor dinâmico que manipula o arquivo do aluno remoto
-                tela_sel = st.selectbox(
-                    "Selecione a Atividade:", 
-                    ["📊 Calculadora", "🧮 Funções", "💰 Financeiro", "🎮 Quiz"]
-                )
-                
-                # Dicionário de mapeamento para constantes do Banco de Dados
-                mapa_modos = {
-                    "📊 Calculadora": "CALCULADORA",
-                    "🧮 Funções": "FUNCOES",
-                    "💰 Financeiro": "FINANCEIRO",
-                    "🎮 Quiz": "QUIZ"
-                }
-                
-                if st.button("🚀 Enviar Atividade e Forçar Mudança de Tela", use_container_width=True):
-                    modo_convertido = mapa_modos[tela_sel]
-                    definir_modo_aula(modo_convertido)
-                    st.success(f"Sucesso! Todos os computadores da turma mudarão para: {tela_sel}")
-                    st.rerun()
-                
-                st.markdown("---")
-                st.markdown("#### ⚠️ Perigo / Limpeza de Dados")
-                
-                if st.button(f"🗑️ Zerar Banco de Consumo do {t_sel}", use_container_width=True):
-                    apagar_dados_por_turma(t_sel)
-                    st.success("Dados de consumo limpos!")
-                
-                # Botão de exclusão definitiva em cascata para virada de ano letivo
-                if st.button(f"💥 EXCLUIR DEFINITIVAMENTE o {t_sel}", use_container_width=True):
-                    if deletar_turma_completa(st.session_state.prof_logado, t_sel):
-                        st.success(f"A turma '{t_sel}' e todos os consumos dela foram completamente removidos.")
+            if submit_login:
+                if email_login.strip() and senha_login.strip():
+                    resultado = login_professor_completo(email_login.strip(), senha_login.strip())
+                    if resultado:
+                        st.session_state.prof_logado = resultado[1] 
+                        st.session_state.nome_prof = resultado[0]
+                        st.session_state.disciplina_prof = resultado[2]
+                        st.success(f"Autenticação bem-sucedida! Seja bem-vindo(a), Prof. {resultado[0]}.")
+                        time.sleep(1)
                         st.rerun()
                     else:
-                        st.error("Erro interno ao tentar remover a turma do banco de dados.")
-
-    # -----------------------------------------------------------------
-    # INJEÇÃO DOS MÓDULOS PADRÃO DO PROFESSOR
-    # -----------------------------------------------------------------
-    with aba_calc:
-        renderizar_calculadora()
-
-    with aba_rank:
-        renderizar_ranking()
-
-    with aba_estat:
-        renderizar_estatistica()
-
-    with aba_func:
-        renderizar_funcoes()
-
-    with aba_finan:
-        renderizar_financeiro()
-
-    with aba_dicas:
-        renderizar_dicas()
-
-    # -----------------------------------------------------------------
-    # 🎮 ABA: GAME QUIZ (Painel do Pódio e Tabela Decrescente)
-    # -----------------------------------------------------------------
-    with aba_quiz:
-        st.header("🎮 Central do Quiz e Gamificação")
-        st.markdown("Acompanhe as respostas e o ranking competitivo dos alunos em tempo real.")
+                        st.error("Credenciais não localizadas.")
+                else:
+                    st.warning("Preencha todos os campos.")
+                    
+    with aba_cadastro:
+        # Removido o st.form para permitir a atualização em tempo real do Município
+        nome_cad = st.text_input("Nome Completo:", key="cad_nome")
+        email_cad = st.text_input("E-mail de Acesso:", key="cad_email")
+        senha_cad = st.text_input("Defina uma Senha:", type="password", key="cad_senha")
         
-        turma_atual = verificar_turma_liberada()
+        st.divider()
+        st.markdown("#### 📚 Alocação de Componente Curricular")
+        disciplinas = ["Matemática", "Física", "Língua Portuguesa", "Geografia", "Ciências"]
+        disciplina_cad = st.selectbox("Sua disciplina:", disciplinas, key="cad_disc")
         
-        if turma_atual == "FECHADO":
-            st.warning("⚠️ Abra o acesso de alguma turma na aba '⚙️ Gerenciar Gincana' para monitorar o Quiz.")
-        else:
-            st.info(f"Visualizando dados em tempo real da turma ativa: **{turma_atual}**")
+        st.markdown("#### 🌎 Localização de Atuação (Via IBGE)")
+        lista_ufs = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            uf_cad = st.selectbox("Estado (UF):", lista_ufs, index=16, key="cad_uf") # Padrão: PE
             
-            # Botão manual para o professor atualizar as notas à medida que os alunos concluem
-            if st.button("🔄 Atualizar Classificação Ao Vivo", use_container_width=True):
-                st.rerun()
-                
-            # Coleta as pontuações calculadas sob a regra (+3 por acerto / -1 por erro)
-            df_quiz = obter_ranking_quiz(turma_atual)
+        with col2:
+            # 🚀 MÁGICA: O sistema puxa automaticamente as cidades do estado selecionado!
+            lista_municipios = carregar_municipios_ibge(uf_cad)
             
-            if df_quiz.empty:
-                st.write("⏳ Nenhum aluno finalizou o Quiz nesta rodada ainda. Aguarde as respostas!")
+            # Se o IBGE falhar, ele exibe um text_input normal. Se funcionar, exibe a caixa de seleção.
+            if lista_municipios[0] == "Digite o município...":
+                municipio_cad = st.text_input("Município:", key="cad_mun_texto")
             else:
-                st.markdown("### 🏆 Pódio dos Campeões")
-                
-                # Criação das três colunas visuais para destaque do Top 3
-                col1, col2, col3 = st.columns(3)
-                
-                # 🥇 1º Lugar
-                if len(df_quiz) >= 1:
-                    aluno1 = df_quiz.iloc[0]
-                    col1.metric("🥇 1º Lugar", f"👤 {aluno1['nome_aluno']}", f"{aluno1['pontuacao']} pts")
-                
-                # 🥈 2º Lugar
-                if len(df_quiz) >= 2:
-                    aluno2 = df_quiz.iloc[1]
-                    col2.metric("🥈 2º Lugar", f"👤 {aluno2['nome_aluno']}", f"{aluno2['pontuacao']} pts")
-                
-                # 🥉 3º Lugar
-                if len(df_quiz) >= 3:
-                    aluno3 = df_quiz.iloc[2]
-                    col3.metric("🥉 3º Lugar", f"👤 {aluno3['nome_aluno']}", f"{aluno3['pontuacao']} pts")
-                
-                st.markdown("---")
-                st.markdown("#### 📋 Classificação Geral (Ordem Decrescente)")
-                
-                # Exibição limpa da tabela de notas ocultando o índice padrão do Pandas
-                st.dataframe(
-                    df_quiz, 
-                    use_container_width=True,
-                    column_config={
-                        "nome_aluno": "Nome do Aluno (Detetive)",
-                        "pontuacao": st.column_config.NumberColumn("Pontuação Conquistada", format="%d pontos")
-                    },
-                    hide_index=True
+                municipio_cad = st.selectbox("Município:", lista_municipios, key="cad_mun_select")
+        
+        st.markdown("#### 🏫 Lotação Escolar")
+        escola1_cad = st.text_input("Nome da Escola Principal (Obrigatório):", key="cad_escola1")
+        escola2_cad = st.text_input("Nome da Segunda Escola (Opcional):", key="cad_escola2")
+        
+        # Botão normal em vez de botão de formulário
+        if st.button("Finalizar Cadastro de Perfil"):
+            if nome_cad and email_cad and senha_cad and escola1_cad and municipio_cad:
+                escolas = [escola1_cad, escola2_cad]
+                sucesso, mensagem = cadastrar_professor_completo(
+                    nome_cad.strip(), email_cad.strip(), senha_cad.strip(), disciplina_cad, uf_cad, municipio_cad, escolas
                 )
+                if sucesso:
+                    st.success(mensagem + " Alterne para a aba de Login.")
+                else:
+                    st.error(mensagem)
+            else:
+                st.warning("Preencha Nome, Email, Senha, Município e a Escola Principal.")
+    st.stop()
+
+
+# =====================================================================
+# 🎛️ PAINEL DO PROFESSOR LOGADO
+# =====================================================================
+st.sidebar.success(f"👤 Docente: {st.session_state.nome_prof}")
+st.sidebar.info(f"📚 Trilha Ativa: {st.session_state.disciplina_prof}")
+
+if st.sidebar.button("🚪 Encerrar Sessão"):
+    st.session_state.clear()
+    st.rerun()
+
+st.title(f"Painel de Orquestração - {st.session_state.disciplina_prof}")
+
+aba_controle, aba_alunos, aba_resultados, aba_quiz = st.tabs([
+    "🎛️ Controle Remoto", "📥 Importar Planilha", "🏆 Laboratório", "📊 Resultados do Quiz"
+])
+
+escolas_do_prof = buscar_escolas_do_professor(st.session_state.prof_logado)
+
+with aba_alunos:
+    st.subheader("📥 Carga em Lote da Lista Oficial")
+    if escolas_do_prof:
+        escola_selecionada = st.selectbox("Selecione a Escola:", escolas_do_prof, key="import_escola")
+        arquivo_upload = st.file_uploader("Upload do Arquivo (.xlsx ou .csv):", type=["xlsx", "csv"])
+        
+        if arquivo_upload is not None:
+            if st.button("🚀 Executar Importação"):
+                try:
+                    if arquivo_upload.name.endswith('.csv'):
+                        df = pd.read_csv(arquivo_upload)
+                        sucesso, msg = importar_alunos_via_dataframe(df, escola_selecionada)
+                    else:
+                        xls = pd.read_excel(arquivo_upload, sheet_name=None)
+                        dfs_processados = []
+                        for nome_aba, df_aba in xls.items():
+                            colunas_lower = [str(c).strip().lower() for c in df_aba.columns]
+                            if not any('turma' in c for c in colunas_lower):
+                                df_aba['turma'] = str(nome_aba).strip()
+                            dfs_processados.append(df_aba)
+                        df_final = pd.concat(dfs_processados, ignore_index=True)
+                        sucesso, msg = importar_alunos_via_dataframe(df_final, escola_selecionada)
+                        
+                    if sucesso:
+                        st.success(msg)
+                        time.sleep(2)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                except Exception as e:
+                    st.error(f"Incompatibilidade estrutural. Detalhes: {e}")
+
+with aba_controle:
+    st.subheader("📡 Controle Remoto")
+    if escolas_do_prof:
+        escola_aula = st.selectbox("1. Escola Ativa:", escolas_do_prof, key="ctrl_escola")
+        turmas_disponiveis = buscar_turmas_da_escola(escola_aula)
+        
+        if turmas_disponiveis:
+            turma_aula = st.selectbox("2. Turma Ativa:", ["FECHADO"] + turmas_disponiveis, key="ctrl_turma")
+            modo_aula = st.radio("3. Cenário para os Alunos:", ["FECHADO", "CALCULADORA", "FUNCOES", "FINANCEIRO", "QUIZ"], horizontal=True)
+            
+            if st.button("📡 Emitir Sinal para as Telas"):
+                atualizar_controle_aula(turma_aula, escola_aula, modo_aula)
+                if turma_aula == "FECHADO":
+                    st.warning("Comando: Acesso trancado aos alunos.")
+                else:
+                    st.success(f"Sinal propagado! Estudantes direcionados para: {modo_aula}.")
+
+with aba_resultados:
+    d = st.session_state.disciplina_prof
+    if d == "Matemática": renderizar_trilha_matematica()
+    elif d == "Física": renderizar_trilha_fisica()
+    elif d == "Língua Portuguesa": renderizar_trilha_portugues()
+    elif d == "Geografia": renderizar_trilha_geografia()
+    elif d in ["Ciências", "Biologia", "Química"]: renderizar_trilha_ciencias()
+
+# 👇 2. INCLUÍMOS O BLOCO DO QUIZ AQUI NO FINAL
+with aba_quiz:
+    if escolas_do_prof:
+        col1, col2 = st.columns(2)
+        with col1:
+            # Filtro para escolher de qual escola quer ver o resultado
+            escola_quiz = st.selectbox("Escola para análise:", escolas_do_prof, key="quiz_escola_sel")
+        with col2:
+            # Filtro para escolher a turma
+            turmas_quiz = buscar_turmas_da_escola(escola_quiz)
+            turma_quiz = st.selectbox("Turma para análise:", turmas_quiz if turmas_quiz else ["Nenhuma"], key="quiz_turma_sel")
+        
+        st.divider()
+        
+        if turmas_quiz:
+            # Chama a função que criamos passando a escola e turma que você selecionou agora
+            renderizar_aba_resultados_quiz(escola_atual=escola_quiz, turma_atual=turma_quiz)
+        else:
+            st.info("Importe alunos para esta escola para começar a captar resultados.")
+    else:
+        st.warning("Você ainda não tem escolas cadastradas.")
+
